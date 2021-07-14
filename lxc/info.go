@@ -2,14 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"io/ioutil"
-	"sort"
-	"strings"
-
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
-
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxc/config"
 	"github.com/lxc/lxd/shared"
@@ -17,6 +9,14 @@ import (
 	cli "github.com/lxc/lxd/shared/cmd"
 	"github.com/lxc/lxd/shared/i18n"
 	"github.com/lxc/lxd/shared/units"
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
+	"io"
+	"io/ioutil"
+	"os"
+	"sort"
+	"strings"
+	"text/tabwriter"
 )
 
 type cmdInfo struct {
@@ -449,25 +449,32 @@ func (c *cmdInfo) instanceInfo(d lxd.InstanceServer, remote config.Remote, name 
 	if err != nil {
 		return err
 	}
-
 	cs, _, err := d.GetInstanceState(name)
 	if err != nil {
 		return err
 	}
 
+	w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', tabwriter.AlignRight)
+
 	const layout = "2006/01/02 15:04 UTC"
 
 	fmt.Printf(i18n.G("Name: %s")+"\n", ct.Name)
-	if ct.Location != "" {
+	if ct.Location != "" && d.IsClustered() {
+		// Only show location if clustered
 		fmt.Printf(i18n.G("Location: %s")+"\n", ct.Location)
 	}
-	if remote.Addr != "" {
-		fmt.Printf(i18n.G("Remote: %s")+"\n", remote.Addr)
-	}
+	// Not showing remote
+	//if remote.Addr != "" {
+	//	fmt.Printf(i18n.G("Remote: %s")+"\n", remote.Addr)
+	//}
 
 	fmt.Printf(i18n.G("Architecture: %s")+"\n", ct.Architecture)
 	if shared.TimeIsSet(ct.CreatedAt) {
 		fmt.Printf(i18n.G("Created: %s")+"\n", ct.CreatedAt.UTC().Format(layout))
+	}
+
+	if shared.TimeIsSet(ct.LastUsedAt) {
+		fmt.Printf(i18n.G("Last Used: %s")+"\n", ct.LastUsedAt.UTC().Format(layout))
 	}
 
 	fmt.Printf(i18n.G("Status: %s")+"\n", ct.Status)
@@ -485,26 +492,6 @@ func (c *cmdInfo) instanceInfo(d lxd.InstanceServer, remote config.Remote, name 
 	fmt.Printf(i18n.G("Profiles: %s")+"\n", strings.Join(ct.Profiles, ", "))
 	if cs.Pid != 0 {
 		fmt.Printf(i18n.G("Pid: %d")+"\n", cs.Pid)
-
-		// IP addresses
-		ipInfo := ""
-		if cs.Network != nil {
-			for netName, net := range cs.Network {
-				vethStr := ""
-				if net.HostName != "" {
-					vethStr = fmt.Sprintf("\t%s", net.HostName)
-				}
-
-				for _, addr := range net.Addresses {
-					ipInfo += fmt.Sprintf("  %s:\t%s\t%s%s\n", netName, addr.Family, addr.Address, vethStr)
-				}
-			}
-		}
-
-		if ipInfo != "" {
-			fmt.Println(i18n.G("Ips:"))
-			fmt.Print(ipInfo)
-		}
 		fmt.Println(i18n.G("Resources:"))
 
 		// Processes
@@ -559,16 +546,31 @@ func (c *cmdInfo) instanceInfo(d lxd.InstanceServer, remote config.Remote, name 
 			fmt.Print(memoryInfo)
 		}
 
-		// Network usage
+		// Network usage and IP info
 		networkInfo := ""
+		ipInfo := ""
 		if cs.Network != nil {
 			for netName, net := range cs.Network {
+				vethStr := ""
+				if net.HostName != "" {
+					vethStr = fmt.Sprintf("\t%s", net.HostName)
+				}
+
+				for _, addr := range net.Addresses {
+					ipInfo += fmt.Sprintf("  %s:\t%s\t%s%s\n", netName, addr.Family, addr.Address, vethStr)
+				}
+
 				networkInfo += fmt.Sprintf("    %s:\n", netName)
 				networkInfo += fmt.Sprintf("      %s: %s\n", i18n.G("Bytes received"), units.GetByteSizeString(net.Counters.BytesReceived, 2))
 				networkInfo += fmt.Sprintf("      %s: %s\n", i18n.G("Bytes sent"), units.GetByteSizeString(net.Counters.BytesSent, 2))
 				networkInfo += fmt.Sprintf("      %s: %d\n", i18n.G("Packets received"), net.Counters.PacketsReceived)
 				networkInfo += fmt.Sprintf("      %s: %d\n", i18n.G("Packets sent"), net.Counters.PacketsSent)
 			}
+		}
+
+		if ipInfo != "" {
+			fmt.Println(i18n.G("Ips:"))
+			fmt.Print(ipInfo)
 		}
 
 		if networkInfo != "" {
@@ -587,17 +589,24 @@ func (c *cmdInfo) instanceInfo(d lxd.InstanceServer, remote config.Remote, name 
 	for _, snap := range snaps {
 		if firstSnapshot {
 			fmt.Println(i18n.G("Snapshots:"))
+			fmt.Fprintln(w, "Name\tTaken at\tExpires at\tStateful")
 		}
 
 		fields := strings.Split(snap.Name, shared.SnapshotDelimiter)
-		fmt.Printf("  %s", fields[len(fields)-1])
-
+		// fmt.Printf("  %s", fields[len(fields)-1])
+		fmt.Fprintf(w, "  %s\t", fields[len(fields)-1])
 		if shared.TimeIsSet(snap.CreatedAt) {
-			fmt.Printf(" ("+i18n.G("taken at %s")+")", snap.CreatedAt.UTC().Format(layout))
+			// fmt.Printf(" ("+i18n.G("taken at %s")+")", snap.CreatedAt.UTC().Format(layout))
+			_, _ = fmt.Fprintf(w, " ("+i18n.G("taken at %s")+")\t", snap.CreatedAt.UTC().Format(layout))
+		} else {
+			_, _ =  fmt.Fprintf(w, "\t")
 		}
 
 		if shared.TimeIsSet(snap.ExpiresAt) {
-			fmt.Printf(" ("+i18n.G("expires at %s")+")", snap.ExpiresAt.UTC().Format(layout))
+			// fmt.Printf(" ("+i18n.G("expires at %s")+")", snap.ExpiresAt.UTC().Format(layout))
+			fmt.Fprintf(w, " ("+i18n.G("expires at %s")+")\t", snap.ExpiresAt.UTC().Format(layout))
+		} else {
+			fmt.Fprintf(w, "\t")
 		}
 
 		if snap.Stateful {
@@ -608,6 +617,41 @@ func (c *cmdInfo) instanceInfo(d lxd.InstanceServer, remote config.Remote, name 
 		fmt.Printf("\n")
 
 		firstSnapshot = false
+	}
+
+	// List backups
+	firstBackup := true
+	backups, err := d.GetInstanceBackups(name)
+	if err != nil {
+		return nil
+	}
+
+	for _, backup := range backups {
+		if firstBackup {
+			fmt.Println(i18n.G("Backups:"))
+		}
+
+		// to be tested
+		fmt.Printf(backup.Name)
+
+		if shared.TimeIsSet(backup.CreatedAt) {
+			fmt.Printf(" ("+i18n.G("taken at %s")+")", backup.CreatedAt.UTC().Format(layout))
+		}
+
+		if shared.TimeIsSet(backup.ExpiresAt) {
+			fmt.Printf(" ("+i18n.G("expires at %s")+")", backup.ExpiresAt.UTC().Format(layout))
+		}
+
+		//if backup.InstanceOnly {
+		//	fmt.Printf(" (" + i18n.G("instance only") + ")")
+		//}
+		//
+		//if backup.OptimizedStorage {
+		//	fmt.Printf(" (" + i18n.G("storage optimized") + ")")
+		//}
+
+		fmt.Printf("\n")
+		firstBackup = false
 	}
 
 	if showLog {
