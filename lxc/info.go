@@ -460,13 +460,8 @@ func (c *cmdInfo) instanceInfo(d lxd.InstanceServer, remote config.Remote, name 
 
 	fmt.Printf(i18n.G("Name: %s")+"\n", ct.Name)
 	if ct.Location != "" && d.IsClustered() {
-		// Only show location if clustered
 		fmt.Printf(i18n.G("Location: %s")+"\n", ct.Location)
 	}
-	// Not showing remote
-	//if remote.Addr != "" {
-	//	fmt.Printf(i18n.G("Remote: %s")+"\n", remote.Addr)
-	//}
 
 	fmt.Printf(i18n.G("Architecture: %s")+"\n", ct.Architecture)
 	if shared.TimeIsSet(ct.CreatedAt) {
@@ -599,14 +594,12 @@ func (c *cmdInfo) instanceInfo(d lxd.InstanceServer, remote config.Remote, name 
 		row = append(row, fields[len(fields)-1])
 
 		if shared.TimeIsSet(snap.CreatedAt) {
-			// fmt.Printf(" ("+i18n.G("taken at %s")+")", snap.CreatedAt.UTC().Format(layout))
 			row = append(row, snap.CreatedAt.UTC().Format(layout))
 		} else {
 			row = append(row, " ")
 		}
 
 		if shared.TimeIsSet(snap.ExpiresAt) {
-			// fmt.Printf(" ("+i18n.G("expires at %s")+")", snap.ExpiresAt.UTC().Format(layout))
 			row = append(row, snap.ExpiresAt.UTC().Format(layout))
 		} else {
 			row = append(row, " ")
@@ -637,20 +630,15 @@ func (c *cmdInfo) instanceInfo(d lxd.InstanceServer, remote config.Remote, name 
 		}
 
 		var row []string
-
-		// to be tested
-		// fmt.Printf(backup.Name)
 		row = append(row, backup.Name)
 
 		if shared.TimeIsSet(backup.CreatedAt) {
-			// fmt.Printf(" ("+i18n.G("taken at %s")+")", backup.CreatedAt.UTC().Format(layout))
 			row = append(row, backup.CreatedAt.UTC().Format(layout))
 		} else {
 			row = append(row, " ")
 		}
 
 		if shared.TimeIsSet(backup.ExpiresAt) {
-			// fmt.Printf(" ("+i18n.G("expires at %s")+")", backup.ExpiresAt.UTC().Format(layout))
 			row = append(row, backup.ExpiresAt.UTC().Format(layout))
 		} else {
 			row = append(row, " ")
