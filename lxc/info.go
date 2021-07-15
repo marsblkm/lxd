@@ -2,6 +2,15 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
+	"sort"
+	"strings"
+	"text/tabwriter"
+
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
+
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxc/config"
 	"github.com/lxc/lxd/shared"
@@ -9,14 +18,6 @@ import (
 	cli "github.com/lxc/lxd/shared/cmd"
 	"github.com/lxc/lxd/shared/i18n"
 	"github.com/lxc/lxd/shared/units"
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
-	"io"
-	"io/ioutil"
-	"os"
-	"sort"
-	"strings"
-	"text/tabwriter"
 )
 
 type cmdInfo struct {
