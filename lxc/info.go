@@ -589,32 +589,35 @@ func (c *cmdInfo) instanceInfo(d lxd.InstanceServer, remote config.Remote, name 
 	for _, snap := range snaps {
 		if firstSnapshot {
 			fmt.Println(i18n.G("Snapshots:"))
-			fmt.Fprintln(w, "Name\tTaken at\tExpires at\tStateful")
+			columnNames := []string {"Name", i18n.G("Taken at"), i18n.G("Expires at"), "Stateful"}
+			_, _ = fmt.Fprintln(w, strings.Join(columnNames[:], "\t"))
 		}
 
+		var row []string
+
 		fields := strings.Split(snap.Name, shared.SnapshotDelimiter)
-		// fmt.Printf("  %s", fields[len(fields)-1])
-		fmt.Fprintf(w, "  %s\t", fields[len(fields)-1])
+		row = append(row, fields[len(fields)-1])
+
 		if shared.TimeIsSet(snap.CreatedAt) {
 			// fmt.Printf(" ("+i18n.G("taken at %s")+")", snap.CreatedAt.UTC().Format(layout))
-			_, _ = fmt.Fprintf(w, " ("+i18n.G("taken at %s")+")\t", snap.CreatedAt.UTC().Format(layout))
+			row = append(row, snap.CreatedAt.UTC().Format(layout))
 		} else {
-			_, _ =  fmt.Fprintf(w, "\t")
+			row = append(row, " ")
 		}
 
 		if shared.TimeIsSet(snap.ExpiresAt) {
 			// fmt.Printf(" ("+i18n.G("expires at %s")+")", snap.ExpiresAt.UTC().Format(layout))
-			fmt.Fprintf(w, " ("+i18n.G("expires at %s")+")\t", snap.ExpiresAt.UTC().Format(layout))
+			row = append(row, snap.ExpiresAt.UTC().Format(layout))
 		} else {
-			fmt.Fprintf(w, "\t")
+			row = append(row, " ")
 		}
 
 		if snap.Stateful {
-			fmt.Printf(" (" + i18n.G("stateful") + ")")
+			row = append(row, "True")
 		} else {
-			fmt.Printf(" (" + i18n.G("stateless") + ")")
+			row = append(row, "False")
 		}
-		fmt.Printf("\n")
+		_, _ = fmt.Fprintln(w, strings.Join(row[:], "\t"))
 
 		firstSnapshot = false
 	}
@@ -629,28 +632,43 @@ func (c *cmdInfo) instanceInfo(d lxd.InstanceServer, remote config.Remote, name 
 	for _, backup := range backups {
 		if firstBackup {
 			fmt.Println(i18n.G("Backups:"))
+			columnNames := []string {"Name", i18n.G("Taken at"), i18n.G("Expires at"), "Instance Only", "Optimized Storage"}
+			_, _ = fmt.Fprintln(w, strings.Join(columnNames[:], "\t"))
 		}
 
+		var row []string
+
 		// to be tested
-		fmt.Printf(backup.Name)
+		// fmt.Printf(backup.Name)
+		row = append(row, backup.Name)
 
 		if shared.TimeIsSet(backup.CreatedAt) {
-			fmt.Printf(" ("+i18n.G("taken at %s")+")", backup.CreatedAt.UTC().Format(layout))
+			// fmt.Printf(" ("+i18n.G("taken at %s")+")", backup.CreatedAt.UTC().Format(layout))
+			row = append(row, backup.CreatedAt.UTC().Format(layout))
+		} else {
+			row = append(row, " ")
 		}
 
 		if shared.TimeIsSet(backup.ExpiresAt) {
-			fmt.Printf(" ("+i18n.G("expires at %s")+")", backup.ExpiresAt.UTC().Format(layout))
+			// fmt.Printf(" ("+i18n.G("expires at %s")+")", backup.ExpiresAt.UTC().Format(layout))
+			row = append(row, backup.ExpiresAt.UTC().Format(layout))
+		} else {
+			row = append(row, " ")
 		}
 
-		//if backup.InstanceOnly {
-		//	fmt.Printf(" (" + i18n.G("instance only") + ")")
-		//}
-		//
-		//if backup.OptimizedStorage {
-		//	fmt.Printf(" (" + i18n.G("storage optimized") + ")")
-		//}
+		if backup.InstanceOnly {
+			row = append(row, "True")
+		} else {
+			row = append(row, "False")
+		}
 
-		fmt.Printf("\n")
+		if backup.OptimizedStorage {
+			row = append(row, "True")
+		} else {
+			row = append(row, "False")
+		}
+
+		_, _ = fmt.Fprintln(w, strings.Join(row[:], "\t"))
 		firstBackup = false
 	}
 
